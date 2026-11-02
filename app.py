@@ -5,10 +5,13 @@ import streamlit as st
 st.set_page_config(page_title="Importador de Compras", page_icon="📊", layout="centered")
 
 st.title("📊 Convertidor de Comprobantes AFIP a Excel")
-st.write("Sube el archivo CSV descargado de AFIP para convertirlo al formato de tu sistema contable.")
+st.write("Ingresá el CUIT de la empresa y subí el archivo CSV descargado de AFIP.")
+
+# Recuadro para ingresar el CUIT de la empresa (con tu CUIT configurado por defecto)
+cuit_empresa = st.text_input("CUIT de la empresa:", value="30719436281")
 
 # Componente para subir el archivo CSV
-uploaded_file = st.file_uploader("Selecciona el archivo CSV de AFIP", type=["csv"])
+uploaded_file = st.file_uploader("Seleccioná el archivo CSV de AFIP", type=["csv"])
 
 if uploaded_file is not None:
     try:
@@ -76,21 +79,25 @@ if uploaded_file is not None:
         col1.metric("Comprobantes procesados", len(df_excel))
         col2.metric("Monto Total", f"${df_excel['TotalComprobante'].sum():,.2f}")
 
-        # Crear el archivo Excel en memoria (buffer)
+        # Crear el archivo Excel en memoria
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df_excel.to_excel(writer, sheet_name='Comprobantes', index=False)
             df_proveedores.to_excel(writer, sheet_name='Proveedores', index=False)
         output.seek(0)
 
-        # Botón para descargar el resultado
+        # Generar nombre dinámico del archivo según el CUIT ingresado
+        cuit_limpio = str(cuit_empresa).strip().replace('-', '') if cuit_empresa else "Importar"
+        nombre_archivo_salida = f"{cuit_limpio}-Importar_Compras.xlsx"
+
+        # Botón para descargar el archivo procesado
         st.download_button(
             label="📥 Descargar Excel Listo",
             data=output,
-            file_name="Importar_Compras_Listo.xlsx",
+            file_name=nombre_archivo_salida,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-        st.success("¡Archivo procesado con éxito!")
+        st.success(f"¡Archivo procesado! El nombre generado es: **{nombre_archivo_salida}**")
 
     except Exception as e:
         st.error(f"Error al procesar el archivo: {e}")
