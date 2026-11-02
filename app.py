@@ -7,13 +7,17 @@ st.set_page_config(page_title="Importador de Compras", page_icon="📊", layout=
 st.title("📊 Convertidor de Comprobantes AFIP a Excel")
 st.write("Ingresá el CUIT de la empresa y subí el archivo CSV descargado de AFIP.")
 
-# Recuadro para ingresar el CUIT de la empresa
-cuit_empresa = st.text_input("CUIT de la empresa:", value="30719436281")
+# 1. Campo para ingresar el CUIT de la empresa
+cuit_empresa = st.text_input("CUIT de la empresa (sin guiones o con guiones):", placeholder="Ej: 30719436281")
 
-# Componente para subir el archivo CSV
+# 2. Componente para subir el archivo CSV
 uploaded_file = st.file_uploader("Seleccioná el archivo CSV de AFIP", type=["csv"])
 
 if uploaded_file is not None:
+    # Si no ingresó CUIT todavía, le mostramos una advertencia
+    if not cuit_empresa.strip():
+        st.warning("⚠️ Recordá escribir el CUIT en la casilla superior para que el archivo descargado lleve su número al inicio.")
+
     try:
         # Cargar el CSV subido
         df_csv = pd.read_csv(uploaded_file, sep=';', encoding='utf-8')
@@ -30,7 +34,7 @@ if uploaded_file is not None:
         # Construcción del DataFrame para la solapa Comprobantes
         df_excel = pd.DataFrame()
 
-        # CONVERSIÓN DE FECHA A FORMATO FECHA REAL DE EXCEL
+        # Conversión de Fecha a formato Fecha real de Excel
         fechas_convertidas = pd.to_datetime(df_csv['Fecha de Emisión'], errors='coerce')
         df_excel['Fecha'] = fechas_convertidas
         df_excel['FechaContable'] = fechas_convertidas
@@ -78,30 +82,35 @@ if uploaded_file is not None:
         df_proveedores = df_csv[['Nro. Doc. Emisor', 'Denominación Emisor']].drop_duplicates()
         df_proveedores.columns = ['Nro de Documento', 'Razon Social']
 
-        # Mostrar métricas rápidas en pantalla
+        # Mostrar métricas en pantalla
         col1, col2 = st.columns(2)
         col1.metric("Comprobantes procesados", len(df_excel))
         col2.metric("Monto Total", f"${df_excel['TotalComprobante'].sum():,.2f}")
 
-        # Crear el archivo Excel en memoria forzando el formato de fecha de Excel
+        # Crear el archivo Excel en memoria
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl', date_format='YYYY-MM-DD', datetime_format='YYYY-MM-DD') as writer:
             df_excel.to_excel(writer, sheet_name='Comprobantes', index=False)
             df_proveedores.to_excel(writer, sheet_name='Proveedores', index=False)
         output.seek(0)
 
-        # Generar nombre dinámico del archivo
-        cuit_limpio = str(cuit_empresa).strip().replace('-', '') if cuit_empresa else "Importar"
-        nombre_archivo_salida = f"{cuit_limpio}-Importar_Compras.xlsx"
+        # Construir el nombre del archivo final dinámicamente según lo ingresado en el CUIT
+        cuit_limpio = str(cuit_empresa).strip().replace('-', '')
+        if cuit_limpio:
+            nombre_archivo_salida = f"{cuit_limpio}-Importar_Compras.xlsx"
+        else:
+            nombre_archivo_salida = "Importar_Compras.xlsx"
 
-        # Botón para descargar
+        st.info(f"📁 El archivo se descargará con el nombre: **{nombre_archivo_salida}**")
+
+        # Botón de descarga
         st.download_button(
             label="📥 Descargar Excel Listo",
             data=output,
             file_name=nombre_archivo_salida,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-        st.success(f"¡Archivo procesado! El nombre generado es: **{nombre_archivo_salida}**")
+        st.success("¡Archivo listo para descargar!")
 
     except Exception as e:
         st.error(f"Error al procesar el archivo: {e}")
