@@ -14,7 +14,6 @@ cuit_empresa = st.text_input("CUIT de la empresa (sin guiones o con guiones):", 
 uploaded_file = st.file_uploader("Seleccioná el archivo CSV de AFIP", type=["csv"])
 
 if uploaded_file is not None:
-    # Si no ingresó CUIT todavía, le mostramos una advertencia
     if not cuit_empresa.strip():
         st.warning("⚠️ Recordá escribir el CUIT en la casilla superior para que el archivo descargado lleve su número al inicio.")
 
@@ -44,7 +43,7 @@ if uploaded_file is not None:
         df_excel['Sucursal'] = df_csv['Punto de Venta']
         df_excel['NroComprobante'] = df_csv['Número Desde']
         df_excel['CondCompra'] = 0
-        df_excel['Moneda'] = df_csv['Moneda']
+        df_excel['Moneda'] = None  # Se deja en blanco sin carga de datos
         df_excel['Cotizacion'] = df_csv['Tipo Cambio'].apply(a_numero).replace(0, 1.0)
         df_excel['ClasificacionCF'] = 1
         df_excel['ImputacionCF'] = 1
@@ -94,7 +93,7 @@ if uploaded_file is not None:
             df_proveedores.to_excel(writer, sheet_name='Proveedores', index=False)
         output.seek(0)
 
-        # Construir el nombre del archivo final dinámicamente según lo ingresado en el CUIT
+        # Construir el nombre del archivo final
         cuit_limpio = str(cuit_empresa).strip().replace('-', '')
         if cuit_limpio:
             nombre_archivo_salida = f"{cuit_limpio}-Importar_Compras.xlsx"
