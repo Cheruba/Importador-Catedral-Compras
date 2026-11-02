@@ -7,7 +7,7 @@ st.set_page_config(page_title="Importador de Compras", page_icon="📊", layout=
 st.title("📊 Convertidor de Comprobantes AFIP a Excel")
 st.write("Ingresá el CUIT de la empresa y subí el archivo CSV descargado de AFIP.")
 
-# Recuadro para ingresar el CUIT de la empresa (con tu CUIT configurado por defecto)
+# Recuadro para ingresar el CUIT de la empresa
 cuit_empresa = st.text_input("CUIT de la empresa:", value="30719436281")
 
 # Componente para subir el archivo CSV
@@ -29,8 +29,12 @@ if uploaded_file is not None:
 
         # Construcción del DataFrame para la solapa Comprobantes
         df_excel = pd.DataFrame()
-        df_excel['Fecha'] = df_csv['Fecha de Emisión']
-        df_excel['FechaContable'] = df_csv['Fecha de Emisión']
+
+        # CONVERSIÓN DE FECHA A FORMATO FECHA REAL DE EXCEL
+        fechas_convertidas = pd.to_datetime(df_csv['Fecha de Emisión'], errors='coerce')
+        df_excel['Fecha'] = fechas_convertidas
+        df_excel['FechaContable'] = fechas_convertidas
+
         df_excel['Proveedor'] = df_csv['Nro. Doc. Emisor']
         df_excel['Comprobante'] = df_csv['Tipo de Comprobante']
         df_excel['Sucursal'] = df_csv['Punto de Venta']
@@ -79,18 +83,18 @@ if uploaded_file is not None:
         col1.metric("Comprobantes procesados", len(df_excel))
         col2.metric("Monto Total", f"${df_excel['TotalComprobante'].sum():,.2f}")
 
-        # Crear el archivo Excel en memoria
+        # Crear el archivo Excel en memoria forzando el formato de fecha de Excel
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        with pd.ExcelWriter(output, engine='openpyxl', date_format='YYYY-MM-DD', datetime_format='YYYY-MM-DD') as writer:
             df_excel.to_excel(writer, sheet_name='Comprobantes', index=False)
             df_proveedores.to_excel(writer, sheet_name='Proveedores', index=False)
         output.seek(0)
 
-        # Generar nombre dinámico del archivo según el CUIT ingresado
+        # Generar nombre dinámico del archivo
         cuit_limpio = str(cuit_empresa).strip().replace('-', '') if cuit_empresa else "Importar"
         nombre_archivo_salida = f"{cuit_limpio}-Importar_Compras.xlsx"
 
-        # Botón para descargar el archivo procesado
+        # Botón para descargar
         st.download_button(
             label="📥 Descargar Excel Listo",
             data=output,
