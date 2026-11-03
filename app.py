@@ -30,6 +30,9 @@ if uploaded_file is not None:
             except ValueError:
                 return 0.0
 
+        # Serie con el tipo de cambio de cada fila (columna L)
+        tc_serie = df_csv['Tipo Cambio'].apply(a_numero).replace(0, 1.0)
+
         # Construcción del DataFrame para la solapa Comprobantes
         df_excel = pd.DataFrame()
 
@@ -44,45 +47,47 @@ if uploaded_file is not None:
         df_excel['NroComprobante'] = df_csv['Número Desde']
         df_excel['CondCompra'] = 0
         df_excel['Moneda'] = None  # En blanco
-        df_excel['Cotizacion'] = df_csv['Tipo Cambio'].apply(a_numero).replace(0, 1.0)
+        df_excel['Cotizacion'] = tc_serie
         df_excel['ClasificacionCF'] = 1
         df_excel['ImputacionCF'] = 1
 
-        # Netos Gravados
-        df_excel['NG al 21%'] = df_csv['Imp. Neto Gravado IVA 21%'].apply(a_numero)
-        df_excel['NG al 27%'] = df_csv['Imp. Neto Gravado IVA 27%'].apply(a_numero)
-        df_excel['NG al 10,5%'] = df_csv['Imp. Neto Gravado IVA 10,5%'].apply(a_numero)
-        df_excel['NG al 5%'] = df_csv['Imp. Neto Gravado IVA 5%'].apply(a_numero)
-        df_excel['NG al 2,5%'] = df_csv['Imp. Neto Gravado IVA 2,5%'].apply(a_numero)
+        # Netos Gravados (convertidos a pesos según el tipo de cambio de la fila)
+        df_excel['NG al 21%'] = df_csv['Imp. Neto Gravado IVA 21%'].apply(a_numero) * tc_serie
+        df_excel['NG al 27%'] = df_csv['Imp. Neto Gravado IVA 27%'].apply(a_numero) * tc_serie
+        df_excel['NG al 10,5%'] = df_csv['Imp. Neto Gravado IVA 10,5%'].apply(a_numero) * tc_serie
+        df_excel['NG al 5%'] = df_csv['Imp. Neto Gravado IVA 5%'].apply(a_numero) * tc_serie
+        df_excel['NG al 2,5%'] = df_csv['Imp. Neto Gravado IVA 2,5%'].apply(a_numero) * tc_serie
 
-        # IVA
-        df_excel['IVA al 21%'] = df_csv['IVA 21%'].apply(a_numero)
-        df_excel['IVA al 27%'] = df_csv['IVA 27%'].apply(a_numero)
-        df_excel['IVA al 10,5%'] = df_csv['IVA 10,5%'].apply(a_numero)
-        df_excel['IVA al 5%'] = df_csv['IVA 5%'].apply(a_numero)
-        df_excel['IVA al 2,5%'] = df_csv['IVA 2,5%'].apply(a_numero)
+        # IVA (convertidos a pesos según el tipo de cambio de la fila)
+        df_excel['IVA al 21%'] = df_csv['IVA 21%'].apply(a_numero) * tc_serie
+        df_excel['IVA al 27%'] = df_csv['IVA 27%'].apply(a_numero) * tc_serie
+        df_excel['IVA al 10,5%'] = df_csv['IVA 10,5%'].apply(a_numero) * tc_serie
+        df_excel['IVA al 5%'] = df_csv['IVA 5%'].apply(a_numero) * tc_serie
+        df_excel['IVA al 2,5%'] = df_csv['IVA 2,5%'].apply(a_numero) * tc_serie
 
-        # CÁLCULO DE EXENTO: Si el Tipo de Comprobante es 11, 12 o 13 (Comprobantes C), el Total pasa a Exento
+        # CÁLCULO DE EXENTO Y NO ALCANZADO (convertidos a pesos según el tipo de cambio de la fila)
         def calcular_exento(row):
             tipo_comp = row['Tipo de Comprobante']
             imp_exentas = a_numero(row['Imp. Op. Exentas'])
             imp_total = a_numero(row['Imp. Total'])
+            tc = a_numero(row['Tipo Cambio'])
+            tc = tc if tc > 0 else 1.0
             
             if tipo_comp in [11, 12, 13]:
-                return imp_total
-            return imp_exentas
+                return imp_total * tc
+            return imp_exentas * tc
 
         df_excel['Exento'] = df_csv.apply(calcular_exento, axis=1)
-        df_excel['NoAlcanzado'] = df_csv['Imp. Neto No Gravado'].apply(a_numero) + df_csv['Imp. Neto Gravado IVA 0%'].apply(a_numero)
+        df_excel['NoAlcanzado'] = (df_csv['Imp. Neto No Gravado'].apply(a_numero) + df_csv['Imp. Neto Gravado IVA 0%'].apply(a_numero)) * tc_serie
         df_excel['ImpuestosInternos'] = 0.0
         df_excel['PercepcionesIVA'] = 0.0
         df_excel['RegimenPercIVA'] = None
-        df_excel['PercepcionesIB'] = df_csv['Otros Tributos'].apply(a_numero)
+        df_excel['PercepcionesIB'] = df_csv['Otros Tributos'].apply(a_numero) * tc_serie
         df_excel['PercepcionesIG'] = 0.0
         df_excel['PercepcionesBP'] = 0.0
 
-        # Totales y CAE
-        df_excel['TotalComprobante'] = df_csv['Imp. Total'].apply(a_numero)
+        # Totales y CAE (convertidos a pesos)
+        df_excel['TotalComprobante'] = df_csv['Imp. Total'].apply(a_numero) * tc_serie
         df_excel['CAI/CAE/COE'] = df_csv['Cód. Autorización']
         df_excel['VtoCAI/CAE/COE'] = None
 
@@ -93,7 +98,7 @@ if uploaded_file is not None:
         # Mostrar métricas en pantalla
         col1, col2 = st.columns(2)
         col1.metric("Comprobantes procesados", len(df_excel))
-        col2.metric("Monto Total", f"${df_excel['TotalComprobante'].sum():,.2f}")
+        col2.metric("Monto Total (Pesos)", f"${df_excel['TotalComprobante'].sum():,.2f}")
 
         # Crear el archivo Excel en memoria
         output = io.BytesIO()
