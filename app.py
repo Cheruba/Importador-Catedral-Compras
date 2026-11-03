@@ -43,7 +43,7 @@ if uploaded_file is not None:
         df_excel['Sucursal'] = df_csv['Punto de Venta']
         df_excel['NroComprobante'] = df_csv['Número Desde']
         df_excel['CondCompra'] = 0
-        df_excel['Moneda'] = None  # Se deja en blanco sin carga de datos
+        df_excel['Moneda'] = None  # En blanco
         df_excel['Cotizacion'] = df_csv['Tipo Cambio'].apply(a_numero).replace(0, 1.0)
         df_excel['ClasificacionCF'] = 1
         df_excel['ImputacionCF'] = 1
@@ -62,8 +62,17 @@ if uploaded_file is not None:
         df_excel['IVA al 5%'] = df_csv['IVA 5%'].apply(a_numero)
         df_excel['IVA al 2,5%'] = df_csv['IVA 2,5%'].apply(a_numero)
 
-        # No alcanzados / Exentos / Percepciones
-        df_excel['Exento'] = df_csv['Imp. Op. Exentas'].apply(a_numero)
+        # CÁLCULO DE EXENTO: Si el Tipo de Comprobante es 11, 12 o 13 (Comprobantes C), el Total pasa a Exento
+        def calcular_exento(row):
+            tipo_comp = row['Tipo de Comprobante']
+            imp_exentas = a_numero(row['Imp. Op. Exentas'])
+            imp_total = a_numero(row['Imp. Total'])
+            
+            if tipo_comp in [11, 12, 13]:
+                return imp_total
+            return imp_exentas
+
+        df_excel['Exento'] = df_csv.apply(calcular_exento, axis=1)
         df_excel['NoAlcanzado'] = df_csv['Imp. Neto No Gravado'].apply(a_numero) + df_csv['Imp. Neto Gravado IVA 0%'].apply(a_numero)
         df_excel['ImpuestosInternos'] = 0.0
         df_excel['PercepcionesIVA'] = 0.0
